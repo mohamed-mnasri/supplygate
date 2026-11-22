@@ -73,8 +73,8 @@ transform, every column is cast to its canonical type with the same rule
 silently loaded as NULL. Blank inputs are missing values, not errors.
 
 The compiler output has `_sg_row_id` (1-based record number, for lineage and the
-conservation check), the canonical columns in schema order, and `_sg_errors`. Diverting
-rows with errors is the quarantine step's job (roadmap part 3).
+conservation check), the canonical columns in schema order, and `_sg_errors`. The loader
+quarantines rows with errors; see [gates.md](gates.md).
 
 ## Risky operations
 

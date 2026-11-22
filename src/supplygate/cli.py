@@ -8,7 +8,10 @@ from pathlib import Path
 
 import duckdb
 
+from supplygate.gates.conservation import ConservationError
 from supplygate.generator import SUPPLIERS, GenerationConfig, generate
+from supplygate.loader import create_audit_tables, load_feed
+from supplygate.mapping import load_spec
 from supplygate.schema import create_tables
 
 
@@ -24,6 +27,11 @@ def main(argv: list[str] | None = None) -> int:
 
     init = sub.add_parser("init-db", help="Create the canonical tables in a DuckDB file.")
     init.add_argument("--db", type=Path, default=Path("data/supplygate.duckdb"))
+
+    load = sub.add_parser("load", help="Map a supplier feed with a spec, run the gates and load it.")
+    load.add_argument("--spec", type=Path, required=True)
+    load.add_argument("--feed", type=Path, required=True)
+    load.add_argument("--db", type=Path, default=Path("data/supplygate.duckdb"))
 
     args = parser.parse_args(argv)
     if args.command == "generate":
@@ -41,7 +49,27 @@ def main(argv: list[str] | None = None) -> int:
         args.db.parent.mkdir(parents=True, exist_ok=True)
         with duckdb.connect(str(args.db)) as con:
             create_tables(con)
-        print(f"created canonical tables in {args.db}")
+            create_audit_tables(con)
+        print(f"created canonical and audit tables in {args.db}")
+    elif args.command == "load":
+        return _load(args.spec, args.feed, args.db)
+    return 0
+
+
+def _load(spec_path: Path, feed: Path, db: Path) -> int:
+    spec = load_spec(spec_path)
+    db.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect(str(db)) as con:
+        try:
+            report = load_feed(con, spec, feed)
+        except ConservationError as exc:
+            print(f"rejected {spec.supplier}: {exc}", file=sys.stderr)
+            return 2
+    print(f"loaded {spec.supplier} run={report.run_id}: {report.conservation.summary()}")
+    if report.risky_ops:
+        print(f"  risky spec operations: {', '.join(report.risky_ops)}")
+    for reason, n in sorted(report.reasons.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  {n:4} x {reason}")
     return 0
 
 

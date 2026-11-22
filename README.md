@@ -2,13 +2,13 @@
 
 A supplier-data onboarding engine for a PC-components retailer. Messy supplier feeds (different languages, encodings, units, formats) are mapped into one canonical catalog in DuckDB. LLM-proposed mappings are compiled from a declarative spec and checked by independent, deterministic gates.
 
-> **Status: early.** Roadmap item 1 (canonical schema, seed catalog, synthetic supplier generator) is implemented. Everything else in this README is the plan; results will be added only when they are measured.
+> **Status: early.** Roadmap items 1-3 (canonical schema and synthetic suppliers; profiler, mapping DSL and compiler; oracle, quarantine, conservation check and lineage) are implemented. Everything else in this README is the plan; results will be added only when they are measured.
 
 ## Idea
 
 - **Contract-first mapping.** The mapping is a small declarative spec (YAML), compiled to DuckDB SQL. The LLM never writes free-form code.
 - **Memory that improves.** Approved mappings are stored and reused, so each new supplier needs fewer human corrections and fewer LLM calls.
-- **Independent gates.** A plausibility oracle (GTIN checksums, valid VRAM sizes, socket/memory compatibility, price ranges) and a row-conservation check (`rows_in = loaded + quarantined`) that the mapping step cannot modify.
+- **Independent gates.** A plausibility oracle (GTIN checksums, valid VRAM sizes, socket/memory compatibility, price ranges) and a row-conservation check (`rows_in = loaded + quarantined`) that the mapping step cannot modify. Failing rows go to quarantine with their reasons; every loaded offer keeps its lineage. See [docs/gates.md](docs/gates.md).
 - **Small local model.** Runs with `qwen3.5:4b` through Ollama on a mid-range laptop. Zero cost. LLM answers are cached.
 
 ## Planned evaluation
@@ -34,6 +34,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\supplygate.exe generate --seed 42 --out data/generated
+.\.venv\Scripts\supplygate.exe load --spec specs/dev/de_csv.yaml --feed data/generated/dev/de_csv/input/feed.csv
 ```
 
 ## Roadmap
