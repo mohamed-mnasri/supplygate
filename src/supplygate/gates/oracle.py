@@ -140,8 +140,9 @@ def gtin_checksum_sql(column: str = "gtin") -> str:
 def build_rules(supplier_id: str, config: OracleConfig = DEFAULT_CONFIG) -> tuple[Rule, ...]:
     """All rules for a batch from ``supplier_id``, in a fixed order.
 
-    ``supplier_id`` is the supplier the batch is loaded for. It comes from the caller, not
-    from the rows, so a mapping cannot write offers into another supplier's namespace.
+    ``supplier_id`` is the supplier the batch is loaded for (the loader passes the one the
+    spec declares). The rows' own ``supplier_id`` must match it, so a spec cannot write
+    offers into another supplier's part of the catalog, e.g. with a wrong ``const``.
     """
     columns = canonical_columns()
     rules: list[Rule] = []
