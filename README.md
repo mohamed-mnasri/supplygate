@@ -46,7 +46,7 @@ py -3.13 -m venv .venv
 6. Experiments, ablations, reward-hacking test
 7. Eval report and write-up of failures and trade-offs
 
-See [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) for design decisions.
+See [docs/schema.md](docs/schema.md) for the canonical schema, supplier formats and corruption families.
 
 ## License
 

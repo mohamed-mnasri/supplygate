@@ -14,6 +14,10 @@ Each family belongs to a split:
 ``expected_oracle_visible`` records whether a correct plausibility oracle *should*
 be able to flag the change. Families with ``False`` exist to measure oracle limits
 (plausible-but-wrong values pass every gate by design).
+
+To add a family: write an ``_apply`` function that changes one value of a
+RowState and returns a Change describing it, then add a Family entry to
+FAMILIES. The generator and the tests pick it up from there.
 """
 
 from __future__ import annotations
@@ -27,8 +31,10 @@ from typing import Any
 from supplygate.gtin import is_valid
 from supplygate.schema import Category
 
+# VRAM sizes that consumer and workstation cards actually ship with.
 VALID_VRAM_GB = (4, 6, 8, 10, 12, 16, 20, 24, 32, 48)
 _INVALID_VRAM_GB = (5, 7, 9, 11, 13, 15, 18)
+# A memory type each socket does NOT support (AM5 boards are DDR5 only, etc.).
 _SOCKET_WRONG_MEMORY = {"AM4": "DDR5", "AM5": "DDR4", "LGA1851": "DDR4"}
 
 
@@ -52,6 +58,8 @@ class RowState:
 
 @dataclass(frozen=True)
 class Change:
+    """What a corruption did to one cell. Written to corruptions.jsonl."""
+
     column: str
     clean_value: Any
     corrupted_value: Any
@@ -60,6 +68,13 @@ class Change:
 
 @dataclass(frozen=True)
 class Family:
+    """A kind of corruption, e.g. "wrong GTIN check digit".
+
+    ``apply`` changes the row and returns a Change, or None if it could not
+    apply after all. ``applicable`` is checked first so ``apply`` can assume
+    the values it needs are present.
+    """
+
     name: str
     split: str  # "dev" | "heldout"
     description: str
@@ -74,6 +89,7 @@ ALL = frozenset(Category)
 
 
 def _set(row: RowState, column: str, value: Any, visible: bool) -> Change:
+    """Overwrite one canonical value and record the before/after."""
     old = row.values.get(column)
     row.values[column] = value
     return Change(column, old, value, visible)
@@ -99,6 +115,7 @@ def _missing_required(row: RowState, rng: random.Random) -> Change:
 
 def _price_decimal_shift(row: RowState, rng: random.Random) -> Change:
     old = row.values["price_eur"]
+    # A misplaced decimal point: 399.90 becomes 39990.00 or 4.00.
     factor = rng.choice([Decimal(100), Decimal("0.01")])
     assert row.native_price is not None
     row.set_native_price((row.native_price * factor).quantize(row.native_price))
@@ -114,7 +131,8 @@ def _negative_stock(row: RowState, rng: random.Random) -> Change:
 
 
 def _duplicate_row(row: RowState, rng: random.Random) -> Change:
-    # The generator inserts a copy of the row; the change is logged on the copy.
+    # Nothing to change in the values: the generator inserts the copy itself
+    # (Family.duplicates_row). This only produces the log entry for the copy.
     return Change("supplier_sku", row.values["supplier_sku"], row.values["supplier_sku"], True)
 
 

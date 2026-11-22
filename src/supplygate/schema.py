@@ -12,6 +12,17 @@ What this schema checks: types, enums, value shape (e.g. GTIN is 13 digits) and
 that a row only carries attributes of its own category. What it does NOT check:
 GTIN checksums, plausible values, cross-field compatibility. Those belong to the
 plausibility oracle (roadmap item 3), which must stay independent of mapping.
+
+Why one wide table instead of one table per category: the mapping compiler
+writes a single INSERT per supplier feed, and a feed mixes CPUs, GPUs and RAM
+in the same file. A wide table keeps that one statement; the NULL rule below
+keeps the categories apart.
+
+Typical use::
+
+    con = duckdb.connect("supplygate.duckdb")
+    create_tables(con)
+    canonical_columns("gpu")   # {"supplier_id": "VARCHAR", ..., "gpu_vram_gb": "INTEGER", ...}
 """
 
 from __future__ import annotations
@@ -22,6 +33,9 @@ from typing import Any
 
 import duckdb
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# Enums are StrEnum so their members compare equal to plain strings:
+# Category.CPU == "cpu". Rows read back from DuckDB or CSV are plain strings.
 
 
 class Category(StrEnum):
@@ -43,6 +57,7 @@ class MemoryType(StrEnum):
 
 
 class CpuMemorySupport(StrEnum):
+    # Intel 12th-14th gen (LGA1700) boards exist for both DDR4 and DDR5.
     DDR4 = "DDR4"
     DDR5 = "DDR5"
     DDR4_DDR5 = "DDR4/DDR5"
@@ -55,7 +70,13 @@ class VramType(StrEnum):
 
 
 def _col(duckdb_type: str, description: str, *, unit: str | None = None, category: Category | None = None, **kw: Any) -> Any:
-    """Field with the metadata used to derive DDL and column listings."""
+    """Declare a canonical column.
+
+    Besides the normal Pydantic field, this stores three facts in the field's
+    ``json_schema_extra`` so the rest of the module can read them back:
+    the DuckDB type, the unit (if any), and the category that owns the column
+    (None for columns shared by all categories).
+    """
     extra: dict[str, Any] = {"duckdb_type": duckdb_type, "unit": unit, "category": category.value if category else None}
     return Field(description=description, json_schema_extra=extra, **kw)
 
@@ -113,11 +134,18 @@ class CanonicalOffer(BaseModel):
 
     @model_validator(mode="after")
     def _only_own_category_attributes(self) -> CanonicalOffer:
+        # A GPU row with cpu_cores set is a mapping bug (a column was mapped to
+        # the wrong category). Reject it here, before it reaches the table.
         own = Category(self.category).value
         for name, cat in _FIELD_CATEGORY.items():
             if cat is not None and cat != own and getattr(self, name) is not None:
                 raise ValueError(f"{name} must be NULL for category {own!r}")
         return self
+
+
+# --- derived views of the model --------------------------------------------
+# Everything below reads the metadata stored by _col(), so adding a column to
+# CanonicalOffer automatically updates the DDL and the column listings.
 
 
 def _meta(name: str) -> dict[str, Any]:
@@ -126,6 +154,7 @@ def _meta(name: str) -> dict[str, Any]:
     return extra
 
 
+# column name -> owning category ("cpu", "gpu", "ram") or None for shared columns
 _FIELD_CATEGORY: dict[str, str | None] = {n: _meta(n)["category"] for n in CanonicalOffer.model_fields}
 
 TABLE_NAME = "canonical_offers"
@@ -167,7 +196,11 @@ def enum_values() -> dict[str, list[str]]:
 
 
 def ddl(table: str = TABLE_NAME) -> str:
-    """CREATE TABLE statement for the canonical table, derived from the model."""
+    """CREATE TABLE statement for the canonical table, derived from the model.
+
+    Enum columns get a CHECK constraint, so DuckDB rejects bad values even when
+    rows are inserted by compiled SQL that never went through Pydantic.
+    """
     lines = []
     enums = enum_values()
     for name, typ in canonical_columns().items():
@@ -187,6 +220,7 @@ def create_tables(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def insert_offers(con: duckdb.DuckDBPyConnection, offers: list[CanonicalOffer], table: str = TABLE_NAME) -> None:
+    """Insert validated offers. Used by tests and small scripts; the pipeline itself inserts with compiled SQL."""
     cols = list(canonical_columns())
     placeholders = ", ".join("?" for _ in cols)
     rows = [[getattr(o, c) for c in cols] for o in offers]

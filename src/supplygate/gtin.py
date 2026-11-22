@@ -12,7 +12,12 @@ SYNTHETIC_PREFIX = "200"
 
 
 def check_digit(first12: str) -> str:
-    """EAN-13 check digit for a 12-digit body (weights 1,3,1,3... from the left)."""
+    """EAN-13 check digit for a 12-digit body.
+
+    Multiply the digits alternately by 1 and 3 (starting with 1 on the left),
+    sum them, and pick the digit that rounds the sum up to a multiple of 10.
+    Example: 400638133393 -> sum 89 -> check digit 1 -> 4006381333931.
+    """
     if len(first12) != 12 or not first12.isdigit():
         raise ValueError("expected 12 digits")
     total = sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(first12))
@@ -26,6 +31,8 @@ def is_valid(gtin: str | None) -> bool:
 
 def synthetic_gtin(key: str) -> str:
     """Deterministic synthetic GTIN-13 for ``key`` (prefix 200, valid check digit)."""
+    # 3-digit prefix + 9 hashed digits + 1 check digit = 13 digits.
+    # sha256 (not hash()) so the result is the same on every run and machine.
     body = int(hashlib.sha256(key.encode()).hexdigest(), 16) % 10**9
     first12 = f"{SYNTHETIC_PREFIX}{body:09d}"
     return first12 + check_digit(first12)

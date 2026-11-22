@@ -1,4 +1,16 @@
-"""Seed catalog: hand-curated real component specs (ground truth for generation)."""
+"""Seed catalog: the list of real products every synthetic supplier sells.
+
+The catalog lives in ``seed/catalog.yaml`` and is the ground truth for the
+generator: each supplier feed is "these products, priced and rendered in that
+supplier's format, with a few errors added".
+
+The YAML uses short keys per category (``socket``, ``vram_gb``) because it is
+edited by hand. This module translates them to canonical column names
+(``cpu_socket``, ``gpu_vram_gb``) and attaches a synthetic GTIN.
+
+    for product in load_catalog():
+        offer = product.to_offer("de_csv", "DE-100000", Decimal("399.90"), stock_qty=12)
+"""
 
 from __future__ import annotations
 
@@ -13,7 +25,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from supplygate.gtin import synthetic_gtin
 from supplygate.schema import CanonicalOffer, Category
 
-# seed YAML key -> canonical column, per category
+# Seed YAML key -> canonical column, per category. A key not listed here is an
+# error (see parse_catalog), so a typo in the YAML fails loudly.
 _ATTR_COLUMNS: dict[Category, dict[str, str]] = {
     Category.CPU: {
         "socket": "cpu_socket",
@@ -40,6 +53,7 @@ _ATTR_COLUMNS: dict[Category, dict[str, str]] = {
     },
 }
 
+# Keys every product has, whatever its category.
 _BASE_KEYS = {"product_id", "brand", "model_name", "mpn", "reference_price_eur", "verified"}
 
 
@@ -75,6 +89,7 @@ class CatalogProduct(BaseModel):
 
 
 def parse_catalog(raw: dict[str, list[dict[str, Any]]]) -> list[CatalogProduct]:
+    """Turn the YAML structure ``{category: [product, ...]}`` into CatalogProduct objects."""
     products = []
     for cat_key, items in raw.items():
         category = Category(cat_key)
@@ -93,7 +108,9 @@ def parse_catalog(raw: dict[str, list[dict[str, Any]]]) -> list[CatalogProduct]:
                     brand=item["brand"],
                     model_name=item["model_name"],
                     mpn=item.get("mpn"),
+                    # Not a real barcode: derived from product_id, see gtin.py.
                     gtin=synthetic_gtin(item["product_id"]),
+                    # str() first: Decimal(0.1) would carry float rounding noise.
                     reference_price_eur=Decimal(str(item["reference_price_eur"])),
                     verified=bool(item.get("verified", False)),
                     attributes={col: item[key] for key, col in mapping.items()},
@@ -104,6 +121,10 @@ def parse_catalog(raw: dict[str, list[dict[str, Any]]]) -> list[CatalogProduct]:
 
 @cache
 def load_catalog() -> tuple[CatalogProduct, ...]:
-    """Load the packaged seed catalog."""
+    """Load the packaged seed catalog (parsed once, then cached).
+
+    Read through importlib.resources so it also works from an installed wheel,
+    not only from a source checkout.
+    """
     text = files("supplygate.seed").joinpath("catalog.yaml").read_text(encoding="utf-8")
     return tuple(parse_catalog(yaml.safe_load(text)))
