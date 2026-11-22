@@ -8,4 +8,5 @@ def test_version():
 
 
 def test_duckdb_available():
-    assert duckdb.sql("select 1").fetchone() == (1,)
+    con = duckdb.connect()
+    assert con.execute("select 1").fetchone() == (1,)
