@@ -1,3 +1,5 @@
+"""Compiler behaviour, run end to end in DuckDB on small feeds written by each test."""
+
 from pathlib import Path
 
 import duckdb

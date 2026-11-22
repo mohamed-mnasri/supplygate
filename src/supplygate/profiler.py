@@ -10,6 +10,15 @@ The profile feeds three consumers:
 The profiler reads only the feed file. It is pure Python (no DuckDB) so its guesses are
 independent of how the compiler later reads the file. Each guess is a heuristic and is
 reported with the evidence it rests on (``FeedProfile.notes``).
+
+Flow of ``profile_feed``:
+
+1. read the raw bytes and pick an encoding (``detect_encoding``)
+2. decide CSV or JSON from the extension and the first character
+3. CSV: guess the delimiter and whether row 1 is a header; JSON: find the array of
+   records and flatten nested objects into dotted column names (``specs.cores``)
+4. profile each column on up to ``MAX_ROWS`` rows (``_profile_column``): classify every
+   value, take the majority kind, then look for number format, units and null tokens
 """
 
 from __future__ import annotations
@@ -33,12 +42,13 @@ ValueKind = Literal["empty", "integer", "decimal", "number_with_unit", "date", "
 
 _INT_RE = re.compile(r"^[+-]?\d+$")
 # 1234.5 | 1,234.56 | 1.234,56 | 1234,5 | 1 234,56 | 1'234.50
-_NUM_RE = re.compile(r"^[+-]?(\d{1,3}([.,'   ]\d{3})+|\d+)([.,]\d+)?$")
+_NUM_RE = re.compile(r"^[+-]?(\d{1,3}([.,' \u00a0\u202f]\d{3})+|\d+)([.,]\d+)?$")  # \u00a0, \u202f: no-break spaces
+# optional currency prefix, a number, optional unit: "£54.50", "16 GB", "3200MHz", "125 W"
 _UNIT_RE = re.compile(r"^(?P<pre>[€$£]\s?)?(?P<num>[+-]?\d[\d.,' \u00a0\u202f]*?)\s?(?P<unit>[A-Za-z€$£%/\u00b5]{1,6}(?:/s)?)?$")
 _DATE_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"^\d{4}-\d{2}-\d{2}$"), "%Y-%m-%d"),
     (re.compile(r"^\d{2}\.\d{2}\.\d{4}$"), "%d.%m.%Y"),
-    (re.compile(r"^\d{2}/\d{2}/\d{4}$"), "%d/%m/%Y"),  # ambiguous with %m/%d/%Y; see notes
+    (re.compile(r"^\d{2}/\d{2}/\d{4}$"), "%d/%m/%Y"),  # could also be US %m/%d/%Y: check samples
     (re.compile(r"^\d{8}$"), "%Y%m%d"),
 ]
 # values suppliers use for "missing"; reported as hints, they are not removed from the data
@@ -47,6 +57,8 @@ _BOOL_TOKENS = {"true", "false", "yes", "no", "ja", "nein", "oui", "non", "y", "
 
 
 def classify_value(raw: str) -> ValueKind:
+    """Classify one raw cell. Order matters: a 13-digit string is a GTIN before it is an
+    integer, and "1" or "0" count as integers, not booleans."""
     v = raw.strip()
     if not v:
         return "empty"
@@ -200,6 +212,8 @@ _DELIMS = [";", ",", "\t", "|"]
 
 
 def _sniff_delimiter(text: str) -> tuple[str, str]:
+    """Try each candidate delimiter on the first 50 lines and keep the one that splits the
+    most lines into the same number of fields. Returns (delimiter, evidence)."""
     lines = [ln for ln in text.splitlines()[:50] if ln.strip()]
     if not lines:
         return ",", "empty file, default ','"
@@ -222,6 +236,7 @@ def _sniff_delimiter(text: str) -> tuple[str, str]:
 
 
 def _looks_like_header(rows: list[list[str]]) -> bool:
+    """Guess whether the first row holds column names rather than data."""
     if len(rows) < 2:
         return True
     head, body = rows[0], rows[1:21]
@@ -282,7 +297,10 @@ def _to_text(v: Any) -> str | None:
 
 
 def _profile_column(name: str, position: int, values: list[str | None]) -> ColumnProfile:
+    """Summarise one column. ``values`` are raw strings, with None for a missing cell."""
     n = len(values)
+    # present: non-blank values. typed: present minus tokens like "N/A", so that a few
+    # "N/A" cells don't turn a numeric column into "text".
     present = [v for v in values if v is not None and v.strip() != ""]
     tokens = Counter(v.strip() for v in present if v.strip().lower() in NULL_TOKENS)
     typed = [v for v in present if v.strip().lower() not in NULL_TOKENS] if tokens else present
@@ -301,6 +319,8 @@ def _profile_column(name: str, position: int, values: list[str | None]) -> Colum
         if set(kinds) <= {"integer", "decimal"} and kinds.get("decimal"):
             inferred = "decimal"
         elif cnt / len(typed) < 0.8:
+            # no clear majority: call it text rather than guess a type that half the
+            # values would fail
             inferred = "text"
     counts = Counter(present)
     seen: list[str] = []

@@ -1,3 +1,5 @@
+"""Spec loading and validation: short forms, round-tripping, risky-op listing, and the specs that must be rejected."""
+
 import pytest
 from pydantic import ValidationError
 

@@ -69,8 +69,6 @@ UNIT_FACTORS: dict[str, tuple[str, float]] = {
     "lb": ("mass", 453.59237),
 }
 
-SUPPORTED_ENCODINGS = ("utf-8", "utf-16", "latin-1")
-
 
 def normalize_type(value: str) -> str:
     """Upper-case and validate a target type name. Raises ValueError if not allowed."""
@@ -87,10 +85,17 @@ def normalize_type(value: str) -> str:
 
 
 class _Strict(BaseModel):
+    """Base for every spec model. ``extra="forbid"`` makes a typo or an invented key (say
+    ``sql:``) a validation error instead of being silently ignored."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
 # --------------------------------------------------------------------------- transforms
+#
+# One class per operation. The `op` field names it, and the other fields are its arguments.
+# Each class validates its own arguments, so a bad regex or an impossible unit conversion is
+# rejected when the spec is loaded, not when it runs. compiler.py has the matching SQL.
 
 
 class Trim(_Strict):
@@ -266,6 +271,7 @@ class DefaultValue(_Strict):
     value: str | int | float | bool
 
 
+# Pydantic picks the right class from the `op` value ("discriminated union").
 Transform = Annotated[
     Trim
     | Lower
@@ -303,11 +309,14 @@ def _expand_transform(raw: Any) -> Any:
     if isinstance(raw, str):
         return {"op": raw}
     if isinstance(raw, dict) and "op" not in raw and len(raw) == 1:
+        # short form: a one-key mapping {op_name: arguments}
         ((op, arg),) = raw.items()
         if arg is None or (op in _NO_ARG_OPS and arg in ({}, True)):
             return {"op": op}
         if isinstance(arg, dict) and op != "map_values":
             return {"op": op, **arg}
+        # map_values is special: {map_values: {A: x}} is the mapping itself, while
+        # {map_values: {mapping: {A: x}, default: keep}} is the full argument set
         if op == "map_values" and isinstance(arg, dict) and "mapping" in arg:
             return {"op": op, **arg}
         if op in _PRIMARY_ARG:
@@ -381,16 +390,16 @@ class SourceOptions(_Strict):
 class ColumnMapping(_Strict):
     """How one canonical column is produced. Exactly one of source / sources / const."""
 
-    target: str = Field(min_length=1)
-    source: str | None = None
-    sources: list[str] | None = None
+    target: str = Field(min_length=1)  # canonical column name
+    source: str | None = None  # one feed column (a dotted path for JSON feeds)
+    sources: list[str] | None = None  # several feed columns joined with `sep`
     sep: str = " "
-    const: str | int | float | bool | None = None
+    const: str | int | float | bool | None = None  # same value on every row
     # only produce a value where every condition holds, NULL elsewhere. For feeds whose
     # generic columns mean different things per category (legacy ERP "A1".."A7").
     when: list[Condition] | None = None
-    transforms: list[Transform] = Field(default_factory=list)
-    note: str | None = None
+    transforms: list[Transform] = Field(default_factory=list)  # applied in order
+    note: str | None = None  # free text for reviewers; ignored by the compiler
 
     @field_validator("transforms", mode="before")
     @classmethod
@@ -411,6 +420,7 @@ class ColumnMapping(_Strict):
         return self
 
     def source_columns(self) -> list[str]:
+        """Feed columns this column's value is read from (empty for ``const``)."""
         if self.source is not None:
             return [self.source]
         return list(self.sources or [])
@@ -420,6 +430,8 @@ class ColumnMapping(_Strict):
 
 
 class RiskyUse(BaseModel):
+    """One use of a risky op, e.g. ``default_value`` on ``stock_qty`` with ``{"value": 0}``."""
+
     model_config = ConfigDict(frozen=True)
 
     op: str
@@ -428,6 +440,9 @@ class RiskyUse(BaseModel):
 
 
 class MappingSpec(_Strict):
+    """A complete mapping for one supplier: how to read the feed, which rows to keep, and
+    how to fill each canonical column. Load one with ``load_spec`` or ``parse_spec``."""
+
     version: Literal[1] = SPEC_VERSION
     supplier: str = Field(min_length=1, pattern=r"^[a-z0-9_]+$")
     category: str | None = None
@@ -448,6 +463,7 @@ class MappingSpec(_Strict):
     # ---- introspection used by the router, gates and lineage
 
     def risky_ops(self) -> list[RiskyUse]:
+        """Every use of filter_rows, default_value, null_if or cast_loose, in spec order."""
         uses: list[RiskyUse] = []
         if self.filter_rows is not None:
             conds = ", ".join(f"{c.column} {c.op} {c.value!r}" for c in self.filter_rows.keep_if)

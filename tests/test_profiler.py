@@ -1,3 +1,5 @@
+"""Profiler guesses on the sample feeds in tests/fixtures/feeds and on hand-made edge cases."""
+
 from pathlib import Path
 
 import pytest

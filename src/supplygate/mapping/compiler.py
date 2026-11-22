@@ -1,5 +1,36 @@
 """Compile a MappingSpec into one DuckDB SELECT.
 
+How a spec becomes SQL
+----------------------
+
+Take this spec fragment::
+
+    columns:
+      - {target: sku, source: Artikelnummer}
+      - {target: price_eur, source: Preis, transforms: [trim, {parse_number: {decimal: ","}}]}
+
+``compile_spec`` turns it into a chain of CTEs (shortened here)::
+
+    src  AS (SELECT row_number() OVER () AS _sg_row_id, * FROM read_csv(...all_varchar))
+    kept AS (SELECT * FROM src WHERE <filter_rows, or TRUE>)
+    s0   AS (SELECT _sg_row_id, "Artikelnummer" AS v0, NULL AS e0, "Preis" AS v1, NULL AS e1 ...)
+    s1   AS (... v0, e0, <trim v1> AS v1, e1 ...)                      -- 1st transform
+    s2   AS (... v0, e0, <parse v1> AS v1, <e1 or 'parse_number'> AS e1 ...)  -- 2nd
+    SELECT _sg_row_id, TRY_CAST(v0 AS VARCHAR) AS sku, TRY_CAST(v1 AS DECIMAL(10,2)) AS price_eur,
+           [<errors>] AS _sg_errors
+    FROM s2
+
+* ``src`` reads the feed with every column as text, so no value is lost before the spec
+  decides how to parse it, and numbers each record (``_sg_row_id``).
+* ``s0`` holds, for each mapped column ``i``, its raw value ``v{i}`` and ``e{i}``, the name
+  of the first transform that failed on it (NULL while nothing failed).
+* Stage ``s{k}`` applies the k-th transform of every column that has one. Columns with
+  shorter pipelines are passed through unchanged.
+* The final SELECT casts each value to its canonical type and collects the ``e{i}`` into
+  ``_sg_errors``. Canonical columns the spec does not map come out as typed NULLs.
+
+Print ``compile_spec(...).sql`` to see the full statement for any spec.
+
 Design notes
 
 * The spec carries no SQL. Every identifier is quoted with ``quote_ident`` and every value
@@ -108,7 +139,9 @@ def _json_path(dotted: str) -> str:
 
 # --------------------------------------------------------------------------- step compilation
 
-# value "kinds" tracked through a pipeline so text ops can cast their input
+# The compiler tracks a rough "kind" for each column as it goes through its pipeline. It is
+# only used to decide when an input needs a cast first: e.g. `lower` after `parse_number`
+# must turn the number back into text, and `scale` on raw text must parse it first.
 TEXT, NUMBER, DATE, BOOL, ANY = "text", "number", "date", "bool", "any"
 
 _KIND_OF_TYPE = {
@@ -156,6 +189,9 @@ def _strip_ws(x: str) -> str:
 
 @dataclass(frozen=True)
 class _Step:
+    """One compiled transform: its SQL expression, the kind it produces, and whether a
+    non-blank input turning into NULL counts as an error (see ``_fail_predicate``)."""
+
     expr: str
     kind: str
     strict: bool
@@ -236,6 +272,10 @@ def _homogeneous(values: list[Any]) -> bool:
 
 
 def _fail_predicate(prev: str, new: str) -> str:
+    """SQL that is true when a step lost a value: the input had content, the output is NULL.
+
+    Blank inputs are skipped on purpose: an empty cell is a missing value, not a parse error.
+    """
     return f"({prev} IS NOT NULL AND trim(CAST({prev} AS VARCHAR)) <> '' AND ({new}) IS NULL)"
 
 
@@ -243,7 +283,13 @@ def _fail_predicate(prev: str, new: str) -> str:
 
 
 def _source_cte(spec: MappingSpec, path: str) -> tuple[str, Any]:
-    """Returns (SQL for the raw records, column-ref function)."""
+    """Return the SQL that reads raw records, plus a function that turns a source column
+    name from the spec into a SQL expression.
+
+    For CSV a source column is a real column, so the function just quotes the name. For JSON
+    each record is kept whole as one JSON value (``_sg_rec``) and a source column is a dotted
+    path inside it, read with ``json_extract_string``. Either way the value arrives as text.
+    """
     src = spec.source
     p = quote_literal(path)
     if src.format == "csv":
@@ -341,13 +387,17 @@ def compile_spec(spec: MappingSpec, source_path: str | Path, target_schema: Targ
     src_sql, ref = _source_cte(spec, path)
     ctes: list[str] = [f"src AS ({src_sql})"]
 
+    # filter_rows runs before any transform, on the raw source values. Row ids are assigned
+    # in `src`, before the filter, so dropped rows leave gaps that the conservation check
+    # (roadmap part 3) can count.
     passthrough = "*" if spec.source.format == "csv" else "_sg_row_id, _sg_rec"
     where = "TRUE"
     if spec.filter_rows is not None:
         where = " AND ".join(f"COALESCE({_condition_sql(c, ref)}, FALSE)" for c in spec.filter_rows.keep_if)
     ctes.append(f"kept AS (SELECT {passthrough} FROM src WHERE {where})")
 
-    # stage 0: raw input per mapped column; v{i} = value, e{i} = first failing op
+    # Stage 0: the raw input of each mapped column. v{i} is the value, e{i} the name of the
+    # first transform that failed on it. Columns are numbered by their position in the spec.
     cols = spec.columns
     kinds: list[str] = []
     stage0 = ["_sg_row_id"]
@@ -361,6 +411,9 @@ def compile_spec(spec: MappingSpec, source_path: str | Path, target_schema: Targ
         stage0.append(f"CAST(NULL AS VARCHAR) AS e{i}")
     ctes.append(f"s0 AS (SELECT {', '.join(stage0)} FROM kept)")
 
+    # Stage k applies transform number k of every column. A column with fewer transforms is
+    # copied through. Each stage reads the previous one by column name, which keeps the SQL
+    # size linear in the pipeline length (nesting expressions instead would repeat them).
     depth = max((len(c.transforms) for c in cols), default=0)
     for k in range(depth):
         sel = ["_sg_row_id"]
@@ -372,6 +425,7 @@ def compile_spec(spec: MappingSpec, source_path: str | Path, target_schema: Targ
                 kinds[i] = step.kind
                 sel.append(f"{step.expr} AS {v}")
                 if step.strict:
+                    # keep the first error: once e{i} is set, later steps leave it alone
                     fail = _fail_predicate(v, step.expr)
                     sel.append(f"COALESCE({e}, CASE WHEN {fail} THEN {quote_literal(t.op)} END) AS {e}")
                 else:
@@ -380,7 +434,9 @@ def compile_spec(spec: MappingSpec, source_path: str | Path, target_schema: Targ
                 sel.extend([v, e])
         ctes.append(f"s{k + 1} AS (SELECT {', '.join(sel)} FROM s{k})")
 
-    # final projection: strict cast to the target type, collect errors
+    # Final projection, in target-schema order. The cast to the canonical type is strict too:
+    # if a spec forgets to parse "1.299,50", the cast to DECIMAL fails and is reported as
+    # "<target>:cast_target" instead of silently loading NULL.
     by_target = {c.target: i for i, c in enumerate(cols)}
     final = ["_sg_row_id"]
     error_items = []
