@@ -11,6 +11,18 @@ Everything under ``truth/`` is for scoring only. The profiler, mapper and gates
 must never read it.
 
 Generation is deterministic for a given seed and config: same inputs, same bytes.
+
+How one supplier feed is built (``generate_supplier``):
+
+1. Pick ~80% of the catalog products, in random order.
+2. For each product, invent a shop price in the supplier's currency and a stock
+   level, and build the clean canonical row. That clean row is the ground truth.
+3. With probability ``corruption_rate``, apply one corruption family to a copy
+   of the row (see corruptions.py) and remember what changed.
+4. Render all rows, corrupted or not, in the supplier's file format
+   (see suppliers.py).
+
+``generate`` runs this for every supplier and writes the files.
 """
 
 from __future__ import annotations
@@ -44,6 +56,8 @@ class GenerationConfig:
 
 @dataclass
 class GeneratedRow:
+    """One line of a feed, before rendering, together with its answer key."""
+
     state: RowState  # values as rendered into the feed (possibly corrupted)
     clean: dict[str, Any]  # canonical ground truth
     family: Family | None = None
@@ -51,6 +65,9 @@ class GeneratedRow:
 
     @property
     def expected_outcome(self) -> str:
+        # What a correct pipeline should do with this row. Invisible corruptions
+        # (price_drift, ...) still say "load": the gates cannot see them, and
+        # loading them is how the evaluation measures false passes.
         if self.family and self.change and self.change.expected_oracle_visible and not self.family.benign:
             return "quarantine"
         return "load"
@@ -102,7 +119,13 @@ def _jsonable(v: Any) -> Any:
 
 
 def _native_price(product: CatalogProduct, supplier: Supplier, rng: random.Random) -> Decimal:
-    """Shop-style price in the supplier's currency (x.90 / x.99 endings)."""
+    """Shop-style price in the supplier's currency (x.90 / x.99 endings).
+
+    The native price is chosen first and the EUR value is derived from it with
+    supplier.price_to_eur, exactly as a correct mapping would convert it. The
+    other way round (EUR first, then convert) would leave rounding gaps that no
+    mapping could reproduce.
+    """
     target_eur = product.reference_price_eur * Decimal(str(round(rng.uniform(0.92, 1.12), 4)))
     native = (target_eur / supplier.fx_to_eur).quantize(Decimal(1), ROUND_HALF_UP)
     native -= rng.choice([Decimal("0.01"), Decimal("0.10")])
@@ -117,6 +140,8 @@ def _stock(rng: random.Random) -> int:
 
 def generate_supplier(supplier: Supplier, config: GenerationConfig, catalog: tuple[CatalogProduct, ...] | None = None) -> SupplierFeed:
     catalog = catalog if catalog is not None else load_catalog()
+    # One RNG per supplier, seeded by (seed, supplier): adding or removing a
+    # supplier does not change the other suppliers' feeds.
     rng = random.Random(f"{config.seed}:{supplier.supplier_id}")
     families = [f for f in families_for_split(supplier.split) if f.name not in supplier.excluded_families]
     products = rng.sample(list(catalog), k=round(config.coverage * len(catalog)))
@@ -131,14 +156,18 @@ def generate_supplier(supplier: Supplier, config: GenerationConfig, catalog: tup
         if rng.random() >= config.corruption_rate:
             rows.append(GeneratedRow(state, clean))
             continue
+        # Only families that make sense here: right split, right category, and
+        # whatever the family needs is present (e.g. a GTIN to corrupt).
         candidates = [f for f in families if clean["category"] in f.categories and f.applicable(state)]
         family = rng.choice(candidates)
         if family.duplicates_row:
+            # Keep the original as a normal row and add a copy right after it.
+            # The copy carries the log entry and should be quarantined.
             rows.append(GeneratedRow(state, clean))
             copy = RowState(dict(clean), native, supplier.price_to_eur, product.product_id)
             rows.append(GeneratedRow(copy, clean, family, family.apply(copy, rng)))
             continue
-        change = family.apply(state, rng)
+        change = family.apply(state, rng)  # mutates state.values in place
         rows.append(GeneratedRow(state, clean, family if change else None, change))
 
     feed = SupplierFeed(supplier, rows)

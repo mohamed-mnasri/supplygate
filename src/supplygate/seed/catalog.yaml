@@ -5,9 +5,8 @@
 # reference_price_eur is an approximate street price, used only to generate
 # plausible synthetic offer prices.
 #
-# verified: false means the specs were entered from memory of manufacturer spec
-# sheets and still need a check against the manufacturer page before the project
-# is published. See docs/seed_catalog.md for the checklist.
+# verified: false means the entry has not yet been re-checked against the
+# manufacturer's product page. See docs/seed_catalog.md for the checklist.
 #
 # Units: clocks in MHz, power in W, memory in GB, RAM speed in MT/s.
 # Hybrid Intel CPUs: cores = P + E, base clock = P-core base, tdp = processor base power.

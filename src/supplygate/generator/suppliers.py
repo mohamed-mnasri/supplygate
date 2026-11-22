@@ -30,6 +30,8 @@ def _eur(native: Decimal) -> Decimal:
 
 @dataclass(frozen=True)
 class Supplier:
+    """Everything that defines one supplier: its format, split and how to render rows."""
+
     supplier_id: str
     split: str
     description: str
@@ -45,6 +47,7 @@ class Supplier:
     excluded_families: frozenset[str] = frozenset()  # families this format would erase
 
     def price_to_eur(self, native: Decimal) -> Decimal:
+        """Convert a price as written in the feed to canonical EUR (2 decimals)."""
         if self.price_in_cents:
             native = native / 100
         return _eur(native * self.fx_to_eur)
@@ -66,6 +69,7 @@ def _int_or_blank(x: Any, suffix: str = "") -> str:
 
 
 def _ghz(mhz: int | None, decimal_sep: str = ".") -> str:
+    # Decimal, not float: 2475 / 1000 must print as "2.475", never "2.4749999".
     """Exact GHz string for an integer MHz value (4700 -> '4.7', 2475 -> '2.475')."""
     if mhz is None:
         return ""
@@ -76,6 +80,7 @@ def _ghz(mhz: int | None, decimal_sep: str = ".") -> str:
 
 
 def _decimal_comma(value: Decimal | None, thousands: str) -> str:
+    """1234.56 -> "1.234,56" (thousands=".") or "1\xa0234,56" (thousands="\xa0")."""
     if value is None:
         return ""
     text = f"{value:,.2f}"  # 1,234.56
@@ -95,6 +100,10 @@ def _hash_sku(prefix: str, n: int, product_id: str, length: int) -> str:
 
 
 # --- de_csv: German shop export ------------------------------------------------------------------
+# What a mapper has to handle: German headers, ';' separator, UTF-8 with BOM,
+# "1.234,56" prices, clocks in GHz with a decimal comma ("4,7" = 4700 MHz),
+# units inside cells ("105 W", "12 GB", "CL30"), and "MHz" used for RAM speed
+# where the number is really MT/s (a common shop habit).
 
 _DE_CATEGORY = {Category.CPU: "Prozessoren", Category.GPU: "Grafikkarten", Category.RAM: "Arbeitsspeicher"}
 _DE_HEADER = [
@@ -125,6 +134,9 @@ def _render_de(rows: list[RowState]) -> dict[str, bytes]:
 
 
 # --- fr_csv: French distributor, Latin-1 ------------------------------------------------------
+# Latin-1 encoded (reading it as UTF-8 fails on the accents), French headers,
+# decimal comma with a no-break space as thousands separator ("1\xa0234,56"),
+# and "Go" (gigaoctet) instead of "GB".
 
 _FR_CATEGORY = {Category.CPU: "Processeur", Category.GPU: "Carte graphique", Category.RAM: "Mémoire vive"}
 _FR_HEADER = [
@@ -154,6 +166,9 @@ def _render_fr(rows: list[RowState]) -> dict[str, bytes]:
 
 
 # --- uk_csv: UK wholesaler, GBP, true memory clock in MHz ---------------------------------------
+# Prices in GBP with a pound sign; the mapping must convert with the fixed rate
+# in Supplier.fx_to_eur. All clocks are in MHz. "Memory Clock (MHz)" is the real
+# clock, half the data rate: DDR5-6000 is listed as 3000.
 
 _UK_CATEGORY = {Category.CPU: "Processors", Category.GPU: "Graphics Cards", Category.RAM: "Memory"}
 _UK_HEADER = [
@@ -185,6 +200,9 @@ def _render_uk(rows: list[RowState]) -> dict[str, bytes]:
 
 
 # --- spec_txt: free-text spec column --------------------------------------------------------------
+# Only id, EAN, price and stock are columns. Everything else is packed into one
+# free-text field, e.g. "AMD Ryzen 7 7800X3D | Socket AM5 | 8C/16T | 4.2-5.0 GHz".
+# There is no category column; it has to be inferred from the text.
 
 
 def _spec_text(r: RowState) -> str:
@@ -225,6 +243,11 @@ def _render_spec_txt(rows: list[RowState]) -> dict[str, bytes]:
 
 
 # --- legacy_erp: cryptic codes, cents, positional attributes, code tables -------------------------
+# An old ERP export: pipe-separated cp1252, short German abbreviations as headers
+# (VK_CT = Verkaufspreis in Cent), brand/category/socket as codes that are
+# explained in a separate code_tables.csv, and A1..A7 columns whose meaning
+# depends on the category (A2 is cores for a CPU, VRAM in MB for a GPU,
+# capacity in GB for RAM).
 
 ERP_BRAND_CODES = {"AMD": "A01", "Intel": "I02", "NVIDIA": "N03", "Corsair": "C10", "G.Skill": "G11",
                    "Kingston": "K12", "Crucial": "M13"}  # fmt: skip
@@ -269,6 +292,9 @@ def _render_erp(rows: list[RowState]) -> dict[str, bytes]:
 
 
 # --- json_api: nested JSON with key/value spec lists ------------------------------------------------
+# Nested objects (identifiers, offer.price.amount as a string) and specs as a
+# list of {name, value, unit} entries instead of fixed fields. CPU memory
+# support is a list (["DDR4", "DDR5"]).
 
 _JSON_TYPE = {Category.CPU: "processor", Category.GPU: "graphics_card", Category.RAM: "memory"}
 _JSON_SPECS: dict[Category, list[tuple[str, str, str | None, bool]]] = {
