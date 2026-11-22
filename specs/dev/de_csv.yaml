@@ -1,0 +1,39 @@
+# Reference mapping for the German CSV supplier, written by hand.
+# Seeds the mapping memory and is the expected answer when scoring proposed specs.
+version: 1
+supplier: de_csv
+source: {format: csv, encoding: utf-8, delimiter: ";"}
+columns:
+  - {target: supplier_id, const: de_csv}
+  - {target: supplier_sku, source: Artikelnummer, transforms: [trim]}
+  - target: category
+    source: Warengruppe
+    transforms: [trim, {map_values: {Prozessoren: cpu, Grafikkarten: gpu, Arbeitsspeicher: ram}}]
+  - {target: gtin, source: EAN, transforms: [trim]}
+  - {target: mpn, source: Herstellernummer, transforms: [trim]}
+  - {target: brand, source: Hersteller, transforms: [trim]}
+  - {target: model_name, source: Bezeichnung, transforms: [trim]}
+  - {target: price_eur, source: Preis (EUR), transforms: [{parse_number: {decimal: ",", thousands: "."}}]}
+  - {target: stock_qty, source: Bestand}
+  - {target: cpu_socket, source: Sockel, transforms: [trim]}
+  - {target: cpu_cores, source: Kerne}
+  - {target: cpu_threads, source: Threads}
+  - target: cpu_base_clock_mhz
+    source: Basistakt (GHz)
+    transforms: [{parse_number: {decimal: ","}}, {convert_unit: {from: GHz, to: MHz}}]
+  - target: cpu_boost_clock_mhz
+    source: Turbotakt (GHz)
+    transforms: [{parse_number: {decimal: ","}}, {convert_unit: {from: GHz, to: MHz}}]
+  - {target: cpu_tdp_w, source: TDP, transforms: [{regex_extract: '^\s*(\d+)\s*W\s*$'}]}
+  - {target: cpu_memory_support, source: Speicherunterstützung, transforms: [trim]}
+  - {target: gpu_chipset, source: Grafikchip, transforms: [trim]}
+  - {target: gpu_vram_gb, source: Grafikspeicher, transforms: [{regex_extract: '^\s*(\d+)\s*GB\s*$'}]}
+  - {target: gpu_vram_type, source: Grafikspeichertyp, transforms: [trim]}
+  - {target: gpu_boost_clock_mhz, source: GPU-Boost (MHz)}
+  - {target: gpu_tdp_w, source: Leistungsaufnahme, transforms: [{regex_extract: '^\s*(\d+)\s*W\s*$'}]}
+  - {target: ram_type, source: Speichertyp, transforms: [trim]}
+  - {target: ram_capacity_gb, source: Kapazität, transforms: [{regex_extract: '^\s*(\d+)\s*GB\s*$'}]}
+  - {target: ram_modules, source: Module}
+  # labelled MHz but carries the MT/s data rate (6000 for DDR5-6000)
+  - {target: ram_speed_mts, source: Speichertakt, transforms: [{regex_extract: '^\s*(\d+)\s*MHz\s*$'}]}
+  - {target: ram_cas_latency, source: Latenz, transforms: [{regex_extract: '^\s*CL\s*(\d+)\s*$'}]}
