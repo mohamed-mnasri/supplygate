@@ -51,7 +51,7 @@ Allowed values:
 
 **What the schema checks:** types, enums, 13-digit GTIN shape, 2-decimal prices, no attributes of
 another category. **What it does not check:** GTIN checksums, plausible ranges, socket/memory
-compatibility, duplicates. Those are the oracle's job (roadmap item 3), kept separate so the mapping
+compatibility, duplicates. Those are the oracle's job ([gates.md](gates.md)), kept separate so the mapping
 step cannot weaken them.
 
 ## Seed catalog

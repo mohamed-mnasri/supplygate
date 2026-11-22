@@ -2,6 +2,7 @@
 
 import random
 from decimal import Decimal
+from pathlib import Path
 
 import duckdb
 import pytest
@@ -127,3 +128,10 @@ def test_rule_names_are_unique_and_described():
     rules = build_rules(SUPPLIER)
     assert len({r.name for r in rules}) == len(rules)
     assert all(r.description for r in rules)
+
+
+def test_every_rule_is_documented():
+    doc = (Path(__file__).resolve().parents[1] / "docs" / "gates.md").read_text(encoding="utf-8")
+    # parameterised families are documented once, as `required:<column>` etc.
+    names = {r.name.split(":")[0] for r in build_rules(SUPPLIER)}
+    assert [n for n in sorted(names) if f"`{n}" not in doc] == []

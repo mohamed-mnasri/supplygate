@@ -10,7 +10,7 @@ Design notes
 * Strict steps (parse_number, regex_extract, parse_date, cast, scale, convert_unit,
   map_values with ``default: error``, and the final cast to the target type) never fail
   the query. When a non-blank input becomes NULL they record ``"<target>:<op>"`` in
-  ``_sg_errors``. Rows with errors are for the quarantine step (roadmap part 3) to divert.
+  ``_sg_errors``. Rows with errors are quarantined by the loader (``supplygate.loader``).
 * The risky ops behave exactly as written: ``filter_rows`` drops rows, ``cast_loose``
   records nothing, ``null_if`` and ``default_value`` change values silently. Catching that
   is the job of the independent gates, not of the compiler.
