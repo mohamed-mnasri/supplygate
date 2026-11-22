@@ -2,7 +2,7 @@
 
 A supplier-data onboarding engine for a PC-components retailer. Messy supplier feeds (different languages, encodings, units, formats) are mapped into one canonical catalog in DuckDB. LLM-proposed mappings are compiled from a declarative spec and checked by independent, deterministic gates.
 
-> **Status: early scaffold.** Nothing is implemented yet. This README describes the plan; results will be added only when they are measured.
+> **Status: early.** Roadmap item 1 (canonical schema, seed catalog, synthetic supplier generator) is implemented. Everything else in this README is the plan; results will be added only when they are measured.
 
 ## Idea
 
@@ -21,7 +21,7 @@ A supplier-data onboarding engine for a PC-components retailer. Messy supplier f
 
 ## Data
 
-Supplier feeds are synthetic, generated from a small hand-curated catalog of real component specs, with logged corruptions. Real supplier feeds are not public, and the README will say so.
+Supplier feeds are synthetic, generated from a small hand-curated catalog of real component specs, with logged corruptions. Real supplier feeds are not public. Six supplier formats (three dev, three held-out), twelve corruption families (eight dev, four held-out), ground truth per row. See [docs/schema.md](docs/schema.md).
 
 ## Stack
 
@@ -33,6 +33,7 @@ Python 3.12+, DuckDB, Pydantic, PyYAML, Ollama, pytest, GitHub Actions.
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 .\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\supplygate.exe generate --seed 42 --out data/generated
 ```
 
 ## Roadmap
