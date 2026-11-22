@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "page": 1
+  },
+  "data": {
+    "items": [
+      {
+        "id": "J1",
+        "brand": "AMD",
+        "title": "Ryzen 5 7600",
+        "pricing": {
+          "amount_cents": 21999
+        },
+        "specs": {
+          "socket": "AM5",
+          "cores": 6
+        }
+      },
+      {
+        "id": "J2",
+        "brand": "Intel",
+        "title": "Core i7-14700K",
+        "pricing": {
+          "amount_cents": 40900
+        },
+        "specs": {
+          "socket": "LGA1700",
+          "cores": 20
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+# Reference mapping for the French CSV supplier (Latin-1, decimal comma, "Go"), written by hand.
+version: 1
+supplier: fr_csv
+source: {format: csv, encoding: latin-1, delimiter: ";"}
+columns:
+  - {target: supplier_id, const: fr_csv}
+  - {target: supplier_sku, source: Référence, transforms: [trim]}
+  - target: category
+    source: Catégorie
+    transforms: [trim, {map_values: {Processeur: cpu, Carte graphique: gpu, Mémoire vive: ram}}]
+  - {target: gtin, source: Code EAN, transforms: [trim]}
+  - {target: mpn, source: Réf. fabricant, transforms: [trim]}
+  - {target: brand, source: Marque, transforms: [trim]}
+  - {target: model_name, source: Désignation, transforms: [trim]}
+  - {target: price_eur, source: Prix TTC (EUR), transforms: [{parse_number: {decimal: ",", thousands: " "}}]}
+  - {target: stock_qty, source: Quantité}
+  - {target: cpu_socket, source: Socket, transforms: [trim]}
+  - {target: cpu_cores, source: Nb coeurs}
+  - {target: cpu_threads, source: Nb threads}
+  - target: cpu_base_clock_mhz
+    source: Fréquence de base (GHz)
+    transforms: [{parse_number: {decimal: ","}}, {convert_unit: {from: GHz, to: MHz}}]
+  - target: cpu_boost_clock_mhz
+    source: Fréquence turbo (GHz)
+    transforms: [{parse_number: {decimal: ","}}, {convert_unit: {from: GHz, to: MHz}}]
+  - {target: cpu_tdp_w, source: TDP (W)}
+  - {target: cpu_memory_support, source: Mémoire supportée, transforms: [trim]}
+  - {target: gpu_chipset, source: Puce graphique, transforms: [trim]}
+  - {target: gpu_vram_gb, source: Mémoire vidéo, transforms: [{regex_extract: '^\s*(\d+)\s*Go\s*$'}]}
+  - {target: gpu_vram_type, source: Type mémoire vidéo, transforms: [trim]}
+  - {target: gpu_boost_clock_mhz, source: Fréquence GPU (MHz)}
+  - {target: gpu_tdp_w, source: Consommation (W)}
+  - {target: ram_type, source: Type de mémoire, transforms: [trim]}
+  - {target: ram_capacity_gb, source: Capacité, transforms: [{regex_extract: '^\s*(\d+)\s*Go\s*$'}]}
+  - {target: ram_modules, source: Nombre de barrettes}
+  - {target: ram_speed_mts, source: Fréquence mémoire (MHz)}
+  - {target: ram_cas_latency, source: Latence CAS}

@@ -1,0 +1,37 @@
+# Reference mapping for the UK CSV supplier (GBP, MHz), written by hand.
+version: 1
+supplier: uk_csv
+source: {format: csv, encoding: utf-8, delimiter: ","}
+columns:
+  - {target: supplier_id, const: uk_csv}
+  - {target: supplier_sku, source: SKU, transforms: [trim]}
+  - target: category
+    source: Category
+    transforms: [trim, {map_values: {Processors: cpu, Graphics Cards: gpu, Memory: ram}}]
+  - {target: gtin, source: Barcode, transforms: [trim]}
+  - {target: mpn, source: MPN, transforms: [trim]}
+  - {target: brand, source: Manufacturer, transforms: [trim]}
+  - {target: model_name, source: Product Name, transforms: [trim]}
+  # fixed GBP->EUR rate agreed with the supplier contract (1.17)
+  - target: price_eur
+    source: Price (GBP)
+    transforms: [{regex_extract: '^\s*£\s*([0-9.,]+)\s*$'}, {parse_number: {decimal: ".", thousands: ","}}, {scale: 1.17}]
+  - {target: stock_qty, source: Stock}
+  - {target: cpu_socket, source: CPU Socket, transforms: [trim]}
+  - {target: cpu_cores, source: Cores}
+  - {target: cpu_threads, source: Threads}
+  - {target: cpu_base_clock_mhz, source: Base Clock (MHz)}
+  - {target: cpu_boost_clock_mhz, source: Boost Clock (MHz)}
+  - {target: cpu_tdp_w, source: TDP (W)}
+  - {target: cpu_memory_support, source: Memory Support, transforms: [trim]}
+  - {target: gpu_chipset, source: GPU, transforms: [trim]}
+  - {target: gpu_vram_gb, source: VRAM, transforms: [{regex_extract: '^\s*(\d+)\s*GB\s*$'}]}
+  - {target: gpu_vram_type, source: VRAM Type, transforms: [trim]}
+  - {target: gpu_boost_clock_mhz, source: GPU Boost (MHz)}
+  - {target: gpu_tdp_w, source: Board Power (W)}
+  - {target: ram_type, source: Memory Type, transforms: [trim]}
+  - {target: ram_capacity_gb, source: Capacity, transforms: [{regex_extract: '^\s*(\d+)\s*GB\s*$'}]}
+  - {target: ram_modules, source: Modules}
+  # true memory clock: DDR transfers twice per clock, so MT/s = 2 x MHz
+  - {target: ram_speed_mts, source: Memory Clock (MHz), transforms: [{scale: 2}]}
+  - {target: ram_cas_latency, source: CAS}

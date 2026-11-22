@@ -1,0 +1,27 @@
+version: 1
+supplier: de_csv
+source: {format: csv, delimiter: ";"}
+columns:
+  - {target: supplier_id, const: de_csv}
+  - {target: supplier_sku, source: Artikelnummer}
+  - target: category
+    source: Bezeichnung
+    transforms:
+      - regex_extract: '^(Ryzen|Core|GeForce)'
+      - map_values: {Ryzen: cpu, Core: cpu, GeForce: gpu}
+  - {target: brand, source: Hersteller, transforms: [trim]}
+  - {target: model_name, source: Bezeichnung}
+  - {target: gtin, source: EAN}
+  - target: price_eur
+    source: Preis
+    transforms: [{parse_number: {decimal: ",", thousands: "."}}]
+  - target: cpu_base_clock_mhz
+    source: Takt
+    transforms:
+      - regex_extract: '([0-9]+(?:,[0-9]+)?)\s*GHz'
+      - parse_number: {decimal: ","}
+      - convert_unit: {from: GHz, to: MHz}
+  - target: gpu_vram_gb
+    source: Speicher
+    transforms: [{regex_extract: '(\d+)\s*GB'}, {cast: INTEGER}]
+  - {target: stock_qty, source: Lager, transforms: [{default_value: 0}]}
