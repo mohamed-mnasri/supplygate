@@ -1,0 +1,58 @@
+# SupplyGate seed catalog: hand-curated specs of real PC components.
+#
+# Used as ground truth for the synthetic supplier generator. GTINs are NOT real:
+# they are derived from product_id with the internal-use prefix 200 (see gtin.py).
+# reference_price_eur is an approximate street price, used only to generate
+# plausible synthetic offer prices.
+#
+# verified: false means the entry has not yet been re-checked against the
+# manufacturer's product page. See docs/seed_catalog.md for the checklist.
+#
+# Units: clocks in MHz, power in W, memory in GB, RAM speed in MT/s.
+# Hybrid Intel CPUs: cores = P + E, base clock = P-core base, tdp = processor base power.
+# GPUs are reference / Founders Edition specs; brand is the chip vendor.
+
+cpu:
+  - {product_id: cpu-amd-r5-5600x,    brand: AMD,   model_name: Ryzen 5 5600X,        mpn: 100-100000065BOX, reference_price_eur: 129,  socket: AM4,     cores: 6,  threads: 12, base_clock_mhz: 3700, boost_clock_mhz: 4600, tdp_w: 65,  memory_support: DDR4,      verified: false}
+  - {product_id: cpu-amd-r7-5800x3d,  brand: AMD,   model_name: Ryzen 7 5800X3D,      mpn: 100-100000651WOF, reference_price_eur: 299,  socket: AM4,     cores: 8,  threads: 16, base_clock_mhz: 3400, boost_clock_mhz: 4500, tdp_w: 105, memory_support: DDR4,      verified: false}
+  - {product_id: cpu-amd-r5-7600x,    brand: AMD,   model_name: Ryzen 5 7600X,        mpn: 100-100000593WOF, reference_price_eur: 199,  socket: AM5,     cores: 6,  threads: 12, base_clock_mhz: 4700, boost_clock_mhz: 5300, tdp_w: 105, memory_support: DDR5,      verified: false}
+  - {product_id: cpu-amd-r7-7800x3d,  brand: AMD,   model_name: Ryzen 7 7800X3D,      mpn: 100-100000910WOF, reference_price_eur: 399,  socket: AM5,     cores: 8,  threads: 16, base_clock_mhz: 4200, boost_clock_mhz: 5000, tdp_w: 120, memory_support: DDR5,      verified: false}
+  - {product_id: cpu-amd-r9-7950x,    brand: AMD,   model_name: Ryzen 9 7950X,        mpn: 100-100000514WOF, reference_price_eur: 499,  socket: AM5,     cores: 16, threads: 32, base_clock_mhz: 4500, boost_clock_mhz: 5700, tdp_w: 170, memory_support: DDR5,      verified: false}
+  - {product_id: cpu-amd-r5-9600x,    brand: AMD,   model_name: Ryzen 5 9600X,        mpn: 100-100001405WOF, reference_price_eur: 229,  socket: AM5,     cores: 6,  threads: 12, base_clock_mhz: 3900, boost_clock_mhz: 5400, tdp_w: 65,  memory_support: DDR5,      verified: false}
+  - {product_id: cpu-amd-r7-9700x,    brand: AMD,   model_name: Ryzen 7 9700X,        mpn: 100-100001404WOF, reference_price_eur: 329,  socket: AM5,     cores: 8,  threads: 16, base_clock_mhz: 3800, boost_clock_mhz: 5500, tdp_w: 65,  memory_support: DDR5,      verified: false}
+  - {product_id: cpu-amd-r9-9950x,    brand: AMD,   model_name: Ryzen 9 9950X,        mpn: 100-100001277WOF, reference_price_eur: 599,  socket: AM5,     cores: 16, threads: 32, base_clock_mhz: 4300, boost_clock_mhz: 5700, tdp_w: 170, memory_support: DDR5,      verified: false}
+  - {product_id: cpu-intel-i5-12400f, brand: Intel, model_name: Core i5-12400F,       mpn: BX8071512400F,    reference_price_eur: 109,  socket: LGA1700, cores: 6,  threads: 12, base_clock_mhz: 2500, boost_clock_mhz: 4400, tdp_w: 65,  memory_support: DDR4/DDR5, verified: false}
+  - {product_id: cpu-intel-i5-13600k, brand: Intel, model_name: Core i5-13600K,       mpn: BX8071513600K,    reference_price_eur: 249,  socket: LGA1700, cores: 14, threads: 20, base_clock_mhz: 3500, boost_clock_mhz: 5100, tdp_w: 125, memory_support: DDR4/DDR5, verified: false}
+  - {product_id: cpu-intel-i7-14700k, brand: Intel, model_name: Core i7-14700K,       mpn: BX8071514700K,    reference_price_eur: 359,  socket: LGA1700, cores: 20, threads: 28, base_clock_mhz: 3400, boost_clock_mhz: 5600, tdp_w: 125, memory_support: DDR4/DDR5, verified: false}
+  - {product_id: cpu-intel-i9-14900k, brand: Intel, model_name: Core i9-14900K,       mpn: BX8071514900K,    reference_price_eur: 479,  socket: LGA1700, cores: 24, threads: 32, base_clock_mhz: 3200, boost_clock_mhz: 6000, tdp_w: 125, memory_support: DDR4/DDR5, verified: false}
+  - {product_id: cpu-intel-u5-245k,   brand: Intel, model_name: Core Ultra 5 245K,    mpn: BX80768245K,      reference_price_eur: 259,  socket: LGA1851, cores: 14, threads: 14, base_clock_mhz: 4200, boost_clock_mhz: 5200, tdp_w: 125, memory_support: DDR5,      verified: false}
+  - {product_id: cpu-intel-u7-265k,   brand: Intel, model_name: Core Ultra 7 265K,    mpn: BX80768265K,      reference_price_eur: 339,  socket: LGA1851, cores: 20, threads: 20, base_clock_mhz: 3900, boost_clock_mhz: 5500, tdp_w: 125, memory_support: DDR5,      verified: false}
+  - {product_id: cpu-intel-u9-285k,   brand: Intel, model_name: Core Ultra 9 285K,    mpn: BX80768285K,      reference_price_eur: 549,  socket: LGA1851, cores: 24, threads: 24, base_clock_mhz: 3700, boost_clock_mhz: 5700, tdp_w: 125, memory_support: DDR5,      verified: false}
+
+gpu:
+  - {product_id: gpu-nv-rtx4060,      brand: NVIDIA, model_name: GeForce RTX 4060 Founders Edition,       chipset: GeForce RTX 4060,       mpn: null, reference_price_eur: 299,  vram_gb: 8,  vram_type: GDDR6,  boost_clock_mhz: 2460, tdp_w: 115, verified: false}
+  - {product_id: gpu-nv-rtx4060ti-8,  brand: NVIDIA, model_name: GeForce RTX 4060 Ti 8GB Founders Edition, chipset: GeForce RTX 4060 Ti,    mpn: null, reference_price_eur: 389,  vram_gb: 8,  vram_type: GDDR6,  boost_clock_mhz: 2535, tdp_w: 160, verified: false}
+  - {product_id: gpu-nv-rtx4070,      brand: NVIDIA, model_name: GeForce RTX 4070 Founders Edition,       chipset: GeForce RTX 4070,       mpn: null, reference_price_eur: 549,  vram_gb: 12, vram_type: GDDR6X, boost_clock_mhz: 2475, tdp_w: 200, verified: false}
+  - {product_id: gpu-nv-rtx4070s,     brand: NVIDIA, model_name: GeForce RTX 4070 SUPER Founders Edition, chipset: GeForce RTX 4070 SUPER, mpn: null, reference_price_eur: 599,  vram_gb: 12, vram_type: GDDR6X, boost_clock_mhz: 2475, tdp_w: 220, verified: false}
+  - {product_id: gpu-nv-rtx4080s,     brand: NVIDIA, model_name: GeForce RTX 4080 SUPER Founders Edition, chipset: GeForce RTX 4080 SUPER, mpn: null, reference_price_eur: 1029, vram_gb: 16, vram_type: GDDR6X, boost_clock_mhz: 2550, tdp_w: 320, verified: false}
+  - {product_id: gpu-nv-rtx4090,      brand: NVIDIA, model_name: GeForce RTX 4090 Founders Edition,       chipset: GeForce RTX 4090,       mpn: null, reference_price_eur: 1829, vram_gb: 24, vram_type: GDDR6X, boost_clock_mhz: 2520, tdp_w: 450, verified: false}
+  - {product_id: gpu-nv-rtx5070,      brand: NVIDIA, model_name: GeForce RTX 5070 Founders Edition,       chipset: GeForce RTX 5070,       mpn: null, reference_price_eur: 619,  vram_gb: 12, vram_type: GDDR7,  boost_clock_mhz: 2512, tdp_w: 250, verified: false}
+  - {product_id: gpu-nv-rtx5080,      brand: NVIDIA, model_name: GeForce RTX 5080 Founders Edition,       chipset: GeForce RTX 5080,       mpn: null, reference_price_eur: 1179, vram_gb: 16, vram_type: GDDR7,  boost_clock_mhz: 2617, tdp_w: 360, verified: false}
+  - {product_id: gpu-nv-rtx5090,      brand: NVIDIA, model_name: GeForce RTX 5090 Founders Edition,       chipset: GeForce RTX 5090,       mpn: null, reference_price_eur: 2329, vram_gb: 32, vram_type: GDDR7,  boost_clock_mhz: 2407, tdp_w: 575, verified: false}
+  - {product_id: gpu-amd-rx7600,      brand: AMD,    model_name: Radeon RX 7600,                          chipset: Radeon RX 7600,         mpn: null, reference_price_eur: 269,  vram_gb: 8,  vram_type: GDDR6,  boost_clock_mhz: 2655, tdp_w: 165, verified: false}
+  - {product_id: gpu-amd-rx7800xt,    brand: AMD,    model_name: Radeon RX 7800 XT,                       chipset: Radeon RX 7800 XT,      mpn: null, reference_price_eur: 499,  vram_gb: 16, vram_type: GDDR6,  boost_clock_mhz: 2430, tdp_w: 263, verified: false}
+  - {product_id: gpu-amd-rx7900xtx,   brand: AMD,    model_name: Radeon RX 7900 XTX,                      chipset: Radeon RX 7900 XTX,     mpn: null, reference_price_eur: 899,  vram_gb: 24, vram_type: GDDR6,  boost_clock_mhz: 2500, tdp_w: 355, verified: false}
+  - {product_id: gpu-amd-rx9070xt,    brand: AMD,    model_name: Radeon RX 9070 XT,                       chipset: Radeon RX 9070 XT,      mpn: null, reference_price_eur: 689,  vram_gb: 16, vram_type: GDDR6,  boost_clock_mhz: 2970, tdp_w: 304, verified: false}
+  - {product_id: gpu-intel-arc-b580,  brand: Intel,  model_name: Arc B580 Limited Edition,                chipset: Arc B580,               mpn: null, reference_price_eur: 299,  vram_gb: 12, vram_type: GDDR6,  boost_clock_mhz: 2670, tdp_w: 190, verified: false}
+
+ram:
+  - {product_id: ram-cor-lpx-16-3200,   brand: Corsair,   model_name: Vengeance LPX 16GB (2x8GB) DDR4-3200 CL16,          mpn: CMK16GX4M2B3200C16,       reference_price_eur: 39,  type: DDR4, capacity_gb: 16, modules: 2, speed_mts: 3200, cas_latency: 16, verified: false}
+  - {product_id: ram-cor-lpx-32-3200,   brand: Corsair,   model_name: Vengeance LPX 32GB (2x16GB) DDR4-3200 CL16,         mpn: CMK32GX4M2E3200C16,       reference_price_eur: 65,  type: DDR4, capacity_gb: 32, modules: 2, speed_mts: 3200, cas_latency: 16, verified: false}
+  - {product_id: ram-gsk-rjv-16-3600,   brand: G.Skill,   model_name: Ripjaws V 16GB (2x8GB) DDR4-3600 CL16,              mpn: F4-3600C16D-16GVKC,       reference_price_eur: 45,  type: DDR4, capacity_gb: 16, modules: 2, speed_mts: 3600, cas_latency: 16, verified: false}
+  - {product_id: ram-kng-fb-16-3200,    brand: Kingston,  model_name: FURY Beast 16GB (2x8GB) DDR4-3200 CL16,             mpn: KF432C16BBK2/16,          reference_price_eur: 38,  type: DDR4, capacity_gb: 16, modules: 2, speed_mts: 3200, cas_latency: 16, verified: false}
+  - {product_id: ram-cor-veng-32-6000,  brand: Corsair,   model_name: Vengeance 32GB (2x16GB) DDR5-6000 CL36,             mpn: CMK32GX5M2B6000C36,       reference_price_eur: 105, type: DDR5, capacity_gb: 32, modules: 2, speed_mts: 6000, cas_latency: 36, verified: false}
+  - {product_id: ram-cor-domt-64-6000,  brand: Corsair,   model_name: Dominator Titanium 64GB (2x32GB) DDR5-6000 CL30,    mpn: CMP64GX5M2B6000C30,       reference_price_eur: 279, type: DDR5, capacity_gb: 64, modules: 2, speed_mts: 6000, cas_latency: 30, verified: false}
+  - {product_id: ram-gsk-tz5-32-6000,   brand: G.Skill,   model_name: Trident Z5 RGB 32GB (2x16GB) DDR5-6000 CL30,        mpn: F5-6000J3040F16GX2-TZ5RK, reference_price_eur: 125, type: DDR5, capacity_gb: 32, modules: 2, speed_mts: 6000, cas_latency: 30, verified: false}
+  - {product_id: ram-gsk-fx5-32-6000,   brand: G.Skill,   model_name: Flare X5 32GB (2x16GB) DDR5-6000 CL30,              mpn: F5-6000J3038F16GX2-FX5,   reference_price_eur: 115, type: DDR5, capacity_gb: 32, modules: 2, speed_mts: 6000, cas_latency: 30, verified: false}
+  - {product_id: ram-kng-fb-32-5600,    brand: Kingston,  model_name: FURY Beast 32GB (2x16GB) DDR5-5600 CL36,            mpn: KF556C36BBEK2-32,         reference_price_eur: 99,  type: DDR5, capacity_gb: 32, modules: 2, speed_mts: 5600, cas_latency: 36, verified: false}
+  - {product_id: ram-cru-pro-32-5600,   brand: Crucial,   model_name: Pro 32GB (2x16GB) DDR5-5600 CL46,                   mpn: CP2K16G56C46U5,           reference_price_eur: 89,  type: DDR5, capacity_gb: 32, modules: 2, speed_mts: 5600, cas_latency: 46, verified: false}
